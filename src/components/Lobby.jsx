@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+
 export default function Lobby({ players, isHost, roomCode, onStart }) {
   const [rounds, setRounds] = useState(3);
   const [roundTime, setRoundTime] = useState(60);

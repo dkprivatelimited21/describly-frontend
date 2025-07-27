@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+
 export default function Scoreboard({ scores, players, isHost, onPlayAgain }) {
   const sortedScores = [...players].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
 

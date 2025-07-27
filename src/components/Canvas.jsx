@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+
 import { forwardRef, useEffect, useImperativeHandle } from 'react';
 
 const Canvas = forwardRef(({ isDrawer, word, onDraw, drawingData }, ref) => {
