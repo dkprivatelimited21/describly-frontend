@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import React, { useRef } from 'react';
 
 export default function Home({ onCreate, onJoin }) {
   const [name, setName] = useState('');
