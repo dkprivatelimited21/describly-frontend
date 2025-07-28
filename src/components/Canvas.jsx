@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 
 import { forwardRef, useEffect, useImperativeHandle } from 'react';
 
