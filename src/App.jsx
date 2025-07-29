@@ -4,6 +4,7 @@ import Home from './components/Home';
 import Lobby from './components/Lobby';
 import Game from './components/Game';
 import Scoreboard from './components/Scoreboard';
+import AvatarSelector from './components/AvatarSelector';
 
 const socket = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3000');
 
@@ -15,6 +16,11 @@ function App() {
   const [playerId, setPlayerId] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [playerName, setPlayerName] = useState('');
+  const [avatar, setAvatar] = useState(null);
+
+  if (!avatar) {
+    return <AvatarSelector onSelect={setAvatar} />;
+  }
 
   useEffect(() => {
     socket.on('connect', () => {

@@ -1,84 +1,189 @@
 import { useState, useEffect, useRef } from 'react';
 import Canvas from './Canvas';
 import Chat from './Chat';
+import LobbyChat from './LobbyChat';
+import PlayerList from './PlayerList';
+import './styles/game.css';
 
-export default function Game({ socket, gameState, playerId, playerName, roomCode }) {
-  const [messages, setMessages] = useState([]);
+export default function Game({ socket, gameState, playerId, playerName, roomCode, avatar }) {
+  const [gameMessages, setGameMessages] = useState([]);
+  const [lobbyMessages, setLobbyMessages] = useState([]);
   const [hint, setHint] = useState('');
-  const isDrawer = playerId === gameState.currentDrawer;
+  const [lastGuessTime, setLastGuessTime] = useState(0);
   const canvasRef = useRef();
+  const chatRef = useRef();
 
+  const isDrawer = playerId === gameState?.currentDrawer;
+  const isHost = gameState?.host === playerId;
+  const playerCount = gameState?.players?.length || 0;
+
+  // Handle all socket events
   useEffect(() => {
-    const handleMessage = (message) => {
-      setMessages(prev => [...prev, message]);
+    // Game messages
+    const handleGameMessage = (message) => {
+      setGameMessages(prev => [...prev, {
+        ...message,
+        timestamp: Date.now()
+      }]);
+      scrollChatToBottom();
     };
 
     const handleCorrectGuess = (data) => {
-      setMessages(prev => [...prev, {
-        player: data.player,
-        text: data.guess,
-        correct: true
+      setGameMessages(prev => [...prev, {
+        player: data.playerName,
+        text: data.isYou ? data.guess : data.maskedGuess,
+        correct: true,
+        isYou: data.isYou,
+        timestamp: Date.now()
+      }]);
+      scrollChatToBottom();
+    };
+
+    // Lobby messages
+    const handleLobbyMessage = (message) => {
+      setLobbyMessages(prev => [...prev, {
+        ...message,
+        timestamp: Date.now()
       }]);
     };
 
-    const handleHint = (hintText) => {
-      setHint(hintText);
+    const handlePlayerUpdate = () => {
+      // Force re-render when players change
     };
 
-    socket.on('message', handleMessage);
+    socket.on('gameMessage', handleGameMessage);
     socket.on('correctGuess', handleCorrectGuess);
-    socket.on('hint', handleHint);
+    socket.on('lobbyMessage', handleLobbyMessage);
+    socket.on('playerUpdate', handlePlayerUpdate);
+    socket.on('hint', setHint);
+    socket.on('clearCanvas', () => {
+      canvasRef.current?.clearCanvas();
+    });
 
     return () => {
-      socket.off('message', handleMessage);
+      socket.off('gameMessage', handleGameMessage);
       socket.off('correctGuess', handleCorrectGuess);
-      socket.off('hint', handleHint);
+      socket.off('lobbyMessage', handleLobbyMessage);
+      socket.off('playerUpdate', handlePlayerUpdate);
+      socket.off('hint', setHint);
+      socket.off('clearCanvas');
     };
-  }, []);
+  }, [playerId]);
+
+  const scrollChatToBottom = () => {
+    setTimeout(() => {
+      chatRef.current?.scrollToBottom();
+    }, 100);
+  };
 
   const sendGuess = (guess) => {
-    socket.emit('guess', guess);
+    const now = Date.now();
+    // Spam protection: 1 second between guesses
+    if (now - lastGuessTime < 1000) return;
+    
+    if (guess.trim() && !isDrawer) {
+      socket.emit('submitGuess', guess);
+      setLastGuessTime(now);
+    }
+  };
+
+  const sendLobbyMessage = (message) => {
+    if (message.trim()) {
+      socket.emit('sendLobbyMessage', message);
+    }
   };
 
   const sendDrawing = (data) => {
-    socket.emit('drawing', data);
+    if (isDrawer) {
+      socket.emit('drawingData', data);
+    }
   };
 
-  return (
-    <div className="flex flex-col min-h-screen p-2 md:p-4 bg-gray-100">
-      <div className="flex flex-col md:flex-row gap-4 flex-1">
-        {/* Canvas Area */}
-        <div className="flex-1 bg-white rounded-lg shadow-md p-2 md:p-4">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="font-bold">
-              {isDrawer ? 'You are drawing' : `${gameState.currentDrawerName} is drawing`}
-            </h2>
-            <div className="bg-blue-500 text-white px-3 py-1 rounded-full">
-              {gameState.timer}s
-            </div>
-          </div>
+  const clearCanvas = () => {
+    if (isDrawer) {
+      socket.emit('requestClearCanvas');
+    }
+  };
 
-          {hint && !isDrawer && (
-            <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-2">
-              Hint: {hint}
-            </div>
+  const startGame = () => {
+    if (isHost && playerCount >= 2) {
+      socket.emit('startGame');
+    }
+  };
+
+  // Render lobby if game hasn't started
+  if (!gameState || gameState?.state === 'lobby') {
+    return (
+      <div className="lobby-container">
+        <div className="lobby-header">
+          <h2>Room: {roomCode}</h2>
+          {isHost && (
+            <button 
+              onClick={startGame}
+              disabled={playerCount < 2}
+              className={`start-button ${playerCount < 2 ? 'disabled' : ''}`}
+            >
+              Start Game
+            </button>
           )}
+        </div>
+        
+        <PlayerList 
+          players={gameState?.players || []} 
+          currentPlayerId={playerId}
+        />
+        
+        <LobbyChat
+          ref={chatRef}
+          messages={lobbyMessages}
+          onSend={sendLobbyMessage}
+          playerCount={playerCount}
+          avatar={avatar}
+        />
+      </div>
+    );
+  }
 
+  // Render game when started
+  return (
+    <div className="game-container">
+      <div className="game-header">
+        <div className="game-info">
+          <span>Round: {gameState?.currentRound}/{gameState?.rounds}</span>
+          <span className="timer">Time: {gameState?.timer}s</span>
+          {!isDrawer && hint && (
+            <span className="hint">Hint: {hint}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="game-area">
+        <div className="canvas-section">
           <Canvas
             ref={canvasRef}
             isDrawer={isDrawer}
             word={isDrawer ? gameState.word : ''}
             onDraw={sendDrawing}
             drawingData={!isDrawer ? gameState.drawing : null}
+            avatar={avatar}
+            gameState={gameState}
+            onClear={clearCanvas}
           />
         </div>
-
-        {/* Chat Area */}
-        <div className="w-full md:w-80 bg-white rounded-lg shadow-md p-2 md:p-4">
+        
+        <div className="right-panel">
           <Chat
-            messages={messages}
+            ref={chatRef}
+            messages={gameMessages}
             isDrawer={isDrawer}
             onSendGuess={sendGuess}
+            avatar={avatar}
+          />
+          
+          <PlayerList 
+            players={gameState.players} 
+            currentPlayerId={playerId}
+            scores={gameState.scores}
           />
         </div>
       </div>
