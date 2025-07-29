@@ -1,5 +1,5 @@
 import React from 'react';
-import './styles/playerList.css';
+import './styles/styles.css';
 
 export default function PlayerList({ players, currentPlayerId, scores }) {
   return (
