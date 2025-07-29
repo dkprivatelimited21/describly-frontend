@@ -3,7 +3,7 @@ import Canvas from './Canvas';
 import Chat from './Chat';
 import LobbyChat from './LobbyChat';
 import PlayerList from './PlayerList';
-import './styles/game.css';
+import './styles/styles.css';
 
 export default function Game({ socket, gameState, playerId, playerName, roomCode, avatar }) {
   const [gameMessages, setGameMessages] = useState([]);
@@ -127,11 +127,12 @@ export default function Game({ socket, gameState, playerId, playerName, roomCode
             </button>
           )}
         </div>
-        
-        <PlayerList 
-          players={gameState?.players || []} 
-          currentPlayerId={playerId}
-        />
+       // Replace the PlayerList usage in Game.jsx with:
+<PlayerList 
+  players={gameState.players} 
+  currentPlayerId={playerId}
+  scores={gameState.scores}
+/>
         
         <LobbyChat
           ref={chatRef}

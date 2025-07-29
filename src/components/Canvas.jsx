@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import DrawingTools from './DrawingTools';
-import './styles/canvas.css';
+import './styles/styles.css';
 
 const Canvas = forwardRef(({ 
   isDrawer, 
